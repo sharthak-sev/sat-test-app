@@ -43,6 +43,8 @@ This app relies entirely on frontend technologies (HTML, CSS, JS) and uses **Ind
 
 If you found this tool helpful for your SAT prep, consider buying me a coffee! ☕
 
+<img src="qr.png" alt="Buy me a coffee QR" width="250" style="border-radius: 8px; border: 1px solid #ddd; margin: 10px 0;">
+
 **UPI ID**: `sharthak-jaiswal@fam`
 
 ## License
