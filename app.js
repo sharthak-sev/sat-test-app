@@ -129,6 +129,7 @@
     showDesmos: false,
     showRefSheet: false,
     showShortcuts: false,
+    showSupport: false,
   };
 
   if (document.readyState === "loading") {
@@ -274,6 +275,7 @@
         ${state.view === "dashboard" ? renderDashboard() : ""}
         ${state.view === "mistakes" ? renderMistakesDashboard() : ""}
       </main>
+      ${state.showSupport ? renderSupportModal() : ""}
     `;
     bindHomeEvents();
     renderMath(app);
@@ -290,12 +292,36 @@
           </span>
         </button>
         <nav class="top-actions">
+          <button class="ghost-btn" type="button" data-action="open-support" style="color: #7c3aed; border: 1px solid #7c3aed;">☕ Buy me a coffee</button>
           <button class="ghost-btn" type="button" data-action="dashboard">Dashboard</button>
           <button class="ghost-btn" type="button" data-action="config">Create New Test</button>
           <button class="ghost-btn" type="button" data-action="history">Past Tests</button>
           <button class="primary-btn" type="button" data-action="import">Import .sat-test</button>
         </nav>
       </header>
+    `;
+  }
+
+  function renderSupportModal() {
+    return `
+      <div class="overlay-backdrop" style="display: flex;">
+        <section class="support-modal panel">
+          <div class="panel-heading" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <p class="eyebrow">Support this project</p>
+              <h2>Buy me a coffee ☕</h2>
+            </div>
+            <button class="ghost-btn" type="button" data-action="close-support" style="padding: 4px 8px;">✕</button>
+          </div>
+          <div style="text-align: center; margin: 20px 0;">
+            <img src="qr.png" alt="Payment QR Code" style="width: 200px; height: 200px; border-radius: var(--radius-sm); border: 1px solid var(--line);">
+          </div>
+          <div class="support-code-wrap" style="width: 100%; justify-content: center;">
+            <span>UPI ID:</span>
+            <code title="Copy UPI ID">sharthak-jaiswal@fam</code>
+          </div>
+        </section>
+      </div>
     `;
   }
 
@@ -387,6 +413,18 @@
         </div>
         <p style="color: var(--red); opacity: 0.8; margin-bottom: 16px;">This will clear all imported question banks, sessions, and history. This action cannot be undone.</p>
         <button class="danger-btn" type="button" data-action="reset">Reset Data</button>
+      </section>
+
+      <section class="panel support-panel" style="margin-top: 32px;">
+        <div class="panel-heading">
+          <p class="eyebrow">Support this project</p>
+          <h2>Buy me a coffee ☕</h2>
+        </div>
+        <p class="muted">If this tool helped your SAT prep, you can support its development!</p>
+        <div class="support-code-wrap">
+          <span>UPI ID:</span>
+          <code title="Copy UPI ID">sharthak-jaiswal@fam</code>
+        </div>
       </section>
     `;
   }
@@ -986,6 +1024,8 @@
     const action = event.currentTarget.dataset.action;
 
     if (action === "dashboard") { state.view = "dashboard"; state.notice = null; renderHome(); }
+    if (action === "open-support") { state.showSupport = true; renderHome(); }
+    if (action === "close-support") { state.showSupport = false; renderHome(); }
     if (action === "config") { state.view = "config"; state.notice = null; ensureConfigDefaults(); renderHome(); }
     if (action === "history") { state.view = "history"; state.notice = null; renderHome(); }
     if (action === "history-tab") { state.historyTab = event.currentTarget.dataset.tab || "full"; renderHome(); }
