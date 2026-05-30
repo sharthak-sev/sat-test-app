@@ -151,21 +151,6 @@
     await refreshLocalData();
     await restoreActiveTest();
     ensureConfigDefaults();
-
-    const savedTheme = localStorage.getItem("sat-theme");
-    if (savedTheme === "dark") document.documentElement.setAttribute("data-theme", "dark");
-
-    window.toggleTheme = function() {
-      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-      if (isDark) {
-        document.documentElement.removeAttribute("data-theme");
-        localStorage.setItem("sat-theme", "light");
-      } else {
-        document.documentElement.setAttribute("data-theme", "dark");
-        localStorage.setItem("sat-theme", "dark");
-      }
-    };
-
     if (state.activeTest) {
       renderActiveTest();
     } else {
@@ -316,7 +301,6 @@
           </span>
         </button>
         <nav class="top-actions">
-          <button class="ghost-btn" type="button" onclick="toggleTheme()" title="Toggle Dark Mode">🌙</button>
           <button class="ghost-btn" type="button" data-action="open-support" style="color: #7c3aed; border: 1px solid #7c3aed;">☕ Buy me a coffee</button>
           <button class="ghost-btn" type="button" data-action="dashboard">Dashboard</button>
           <button class="ghost-btn" type="button" data-action="config">Create New Test</button>
@@ -2288,9 +2272,44 @@
      KEYBOARD NAVIGATION
      =========================================================== */
 
+  function toggleElimination(val) {
+    const test = state.activeTest;
+    const ctx = getCurrentContext();
+    if (!test || !ctx || !ctx.question) return;
+    const qid = ctx.question.id;
+    const elim = state.eliminatedChoices[qid] || {};
+    
+    if (elim[val]) {
+      delete elim[val];
+    } else {
+      elim[val] = true;
+      const existing = state.responses.find(r => r.sessionId === test.id && r.questionId === qid);
+      if (existing && existing.answer === val) {
+        setCurrentAnswer(null, true);
+      }
+    }
+    state.eliminatedChoices[qid] = elim;
+    renderActiveTest();
+  }
+
   function handleKeyboard(e) {
-    if (!state.activeTest || state.showDesmos || state.showRefSheet || state.showShortcuts) {
-      if (e.key === "Escape") {
+    if (!state.activeTest) return;
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+
+    const key = e.key.toLowerCase();
+    const isCtrl = e.ctrlKey || e.metaKey;
+    const isAlt = e.altKey;
+    const isShift = e.shiftKey;
+
+    // --- Global Overlays ---
+    if (e.key === "F1") {
+      e.preventDefault();
+      state.showShortcuts = !state.showShortcuts;
+      renderActiveTest();
+      return;
+    }
+    if (e.key === "Escape") {
+      if (state.showDesmos || state.showRefSheet || state.showShortcuts) {
         state.showDesmos = false;
         state.showRefSheet = false;
         state.showShortcuts = false;
@@ -2298,23 +2317,28 @@
       }
       return;
     }
-    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if ((isAlt && key === "c" && !isCtrl) || (isCtrl && isAlt && key === "c")) {
+      e.preventDefault();
+      state.showDesmos = !state.showDesmos;
+      renderActiveTest();
+      return;
+    }
+    if (isCtrl && isAlt && key === "r") {
+      e.preventDefault();
+      state.showRefSheet = !state.showRefSheet;
+      renderActiveTest();
+      return;
+    }
+
+    // --- Block other actions if an overlay is open ---
+    if (state.showDesmos || state.showRefSheet || state.showShortcuts) return;
 
     const test = state.activeTest;
     const ctx = getCurrentContext();
     if (!ctx?.question) return;
 
-    // A/B/C/D to select answers
-    if (/^[a-d]$/i.test(e.key) && ctx.question.answerOptions.length) {
-      e.preventDefault();
-      const letter = e.key.toUpperCase();
-      const opt = ctx.question.answerOptions.find(o => o.letter === letter);
-      if (opt) setCurrentAnswer(letter, true);
-      return;
-    }
-
-    // Arrow right or Enter = next
-    if (e.key === "ArrowRight" || e.key === "Enter") {
+    // --- Navigation ---
+    if (key === "arrowright" || key === "enter" || (isCtrl && isAlt && key === "x")) {
       e.preventDefault();
       if (test.mode === "custom") submitCustomAnswer();
       else if (ctx.index < ctx.list.length - 1) navigateQuestion(1);
@@ -2322,21 +2346,47 @@
       return;
     }
 
-    // Arrow left = back (full test only)
-    if (e.key === "ArrowLeft" && test.mode === "full" && ctx.index > 0) {
+    if ((key === "arrowleft" || (isCtrl && isAlt && key === "b")) && test.mode === "full" && ctx.index > 0) {
       e.preventDefault();
       navigateQuestion(-1);
       return;
     }
 
-    // M = Toggle Bookmark
-    if (e.key.toLowerCase() === "m" && test.mode === "full") {
-      e.preventDefault();
-      toggleCurrentMark();
+    // --- Mark for Review ---
+    if ((key === "m" && !isCtrl && !isAlt) || (isAlt && key === "p" && !isCtrl) || (isCtrl && isAlt && key === "v")) {
+      if (test.mode === "full") {
+        e.preventDefault();
+        toggleCurrentMark();
+      }
       return;
     }
 
-    // Escape = close overlays handled above
+    // --- Select/Eliminate Options ---
+    const letters = ["A", "B", "C", "D"];
+    
+    // A/B/C/D direct selection
+    if (/^[a-d]$/.test(key) && !isCtrl && !isAlt && !isShift && ctx.question.answerOptions.length) {
+      e.preventDefault();
+      const letter = key.toUpperCase();
+      if (ctx.question.answerOptions.some(o => o.letter === letter)) setCurrentAnswer(letter, true);
+      return;
+    }
+
+    // Ctrl+Shift+1/2/3/4 (Select)
+    if (isCtrl && isShift && /^[1-4]$/.test(key) && ctx.question.answerOptions.length) {
+      e.preventDefault();
+      const letter = letters[parseInt(key) - 1];
+      if (ctx.question.answerOptions.some(o => o.letter === letter)) setCurrentAnswer(letter, true);
+      return;
+    }
+
+    // Ctrl+Alt+1/2/3/4 (Eliminate)
+    if (isCtrl && isAlt && /^[1-4]$/.test(key) && ctx.question.answerOptions.length) {
+      e.preventDefault();
+      const letter = letters[parseInt(key) - 1];
+      if (ctx.question.answerOptions.some(o => o.letter === letter)) toggleElimination(letter);
+      return;
+    }
   }
 
   /* ===========================================================
