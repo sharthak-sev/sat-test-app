@@ -2294,7 +2294,6 @@
 
   function handleKeyboard(e) {
     if (!state.activeTest) return;
-    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
 
     const key = e.key.toLowerCase();
     const isCtrl = e.ctrlKey || e.metaKey;
@@ -2329,6 +2328,12 @@
       renderActiveTest();
       return;
     }
+    if ((isCtrl && isAlt && key === "t") || (isAlt && key === "t" && !isCtrl)) {
+      e.preventDefault();
+      state.hideTimer = !state.hideTimer;
+      updateLiveTimers();
+      return;
+    }
 
     // --- Block other actions if an overlay is open ---
     if (state.showDesmos || state.showRefSheet || state.showShortcuts) return;
@@ -2337,23 +2342,39 @@
     const ctx = getCurrentContext();
     if (!ctx?.question) return;
 
+    const isInputFocused = (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA");
+
     // --- Navigation ---
-    if (key === "arrowright" || key === "enter" || (isCtrl && isAlt && key === "x")) {
+    if (isCtrl && isAlt && key === "x") {
       e.preventDefault();
       if (test.mode === "custom") submitCustomAnswer();
       else if (ctx.index < ctx.list.length - 1) navigateQuestion(1);
       else openModuleCheckScreen();
       return;
     }
-
-    if ((key === "arrowleft" || (isCtrl && isAlt && key === "b")) && test.mode === "full" && ctx.index > 0) {
+    if (isCtrl && isAlt && key === "b" && test.mode === "full" && ctx.index > 0) {
       e.preventDefault();
       navigateQuestion(-1);
       return;
     }
 
+    if (!isInputFocused) {
+      if (key === "arrowright" || key === "enter") {
+        e.preventDefault();
+        if (test.mode === "custom") submitCustomAnswer();
+        else if (ctx.index < ctx.list.length - 1) navigateQuestion(1);
+        else openModuleCheckScreen();
+        return;
+      }
+      if (key === "arrowleft" && test.mode === "full" && ctx.index > 0) {
+        e.preventDefault();
+        navigateQuestion(-1);
+        return;
+      }
+    }
+
     // --- Mark for Review ---
-    if ((key === "m" && !isCtrl && !isAlt) || (isAlt && key === "p" && !isCtrl) || (isCtrl && isAlt && key === "v")) {
+    if ((key === "m" && !isCtrl && !isAlt && !isInputFocused) || (isAlt && key === "p" && !isCtrl) || (isCtrl && isAlt && key === "v")) {
       if (test.mode === "full") {
         e.preventDefault();
         toggleCurrentMark();
@@ -2365,7 +2386,7 @@
     const letters = ["A", "B", "C", "D"];
     
     // A/B/C/D direct selection
-    if (/^[a-d]$/.test(key) && !isCtrl && !isAlt && !isShift && ctx.question.answerOptions.length) {
+    if (!isInputFocused && /^[a-d]$/.test(key) && !isCtrl && !isAlt && !isShift && ctx.question.answerOptions.length) {
       e.preventDefault();
       const letter = key.toUpperCase();
       if (ctx.question.answerOptions.some(o => o.letter === letter)) setCurrentAnswer(letter, true);
@@ -2421,6 +2442,7 @@
   function getTimerText() {
     const test = state.activeTest;
     if (!test) return "00:00";
+    if (state.hideTimer) return "Hidden";
     if (test.mode === "custom") return formatTimer(Math.floor((Date.now() - test.currentQuestionStartedAt) / 1000));
     if (test.phase === "break") return formatTimer(Math.max(0, Math.ceil((test.breakEndsAt - Date.now()) / 1000)));
     if (test.phase === "transition") return "—";
