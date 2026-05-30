@@ -398,24 +398,29 @@
         </div>
       </section>
 
-      <section class="panel" style="margin-top: 32px;">
-        <div class="panel-heading">
-          <p class="eyebrow">Data Security</p>
-          <h2>Automatic Backups</h2>
+      <section class="panel two-column" style="margin-top: 32px;">
+        <div style="border-right: 1px solid var(--border); padding-right: 24px;">
+          <div class="panel-heading">
+            <p class="eyebrow">Data Security</p>
+            <h2>Automatic Backups</h2>
+          </div>
+          <p class="muted" style="margin-bottom:16px;">Link a backup folder to automatically save your progress after every test.</p>
+          ${state.backupHandle 
+            ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;"><div class="success-dot"></div><span>Backup folder linked</span><button class="ghost-btn" data-action="unlink-backup">Unlink</button></div>
+               <button class="ghost-btn" data-action="force-backup">Sync Now</button>`
+            : `<button class="secondary-btn" data-action="link-backup">Link Backup Folder</button>`}
+          ${state.backupMessage ? `<p style="color:var(--${state.backupMessage.type === 'error' ? 'red' : 'blue'}); font-size:13px; margin-top:8px;">${state.backupMessage.text}</p>` : ''}
         </div>
-        <p class="muted" style="margin-bottom:16px;">Link a backup folder to automatically save your progress after every test.</p>
-        ${state.backupHandle 
-          ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;"><div class="success-dot"></div><span>Backup folder linked</span><button class="ghost-btn" data-action="unlink-backup">Unlink</button></div>
-             <button class="ghost-btn" data-action="force-backup">Sync Now</button>
-             <button class="secondary-btn" data-action="restore-backup" style="margin-left:8px;">Restore</button>`
-          : `<button class="secondary-btn" data-action="link-backup">Link Backup Folder</button>
-             <button class="ghost-btn" data-action="restore-backup" style="margin-left:8px;">Restore File</button>`}
-             ${state.backupMessage ? `<p style="color:var(--${state.backupMessage.type === 'error' ? 'red' : 'blue'}); font-size:13px; margin-top:8px;">${state.backupMessage.text}</p>` : ''}
-        
-        <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
-          <p class="eyebrow">Manual Backup</p>
-          <p class="muted" style="margin-bottom:12px;font-size:13px;">If you can't link a folder, you can download a backup manually.</p>
-          <button class="ghost-btn" data-action="download-backup">Download Backup</button>
+        <div style="padding-left: 24px;">
+          <div class="panel-heading">
+            <p class="eyebrow">Data Portability</p>
+            <h2>Manual Transfer</h2>
+          </div>
+          <p class="muted" style="margin-bottom:16px;">If you can't link a folder, or want to move your progress to another device, you can manually download and restore a backup file.</p>
+          <div style="display: flex; gap: 8px;">
+            <button class="ghost-btn" data-action="download-backup">Download Backup</button>
+            <button class="secondary-btn" data-action="restore-backup">Restore File</button>
+          </div>
         </div>
       </section>
 

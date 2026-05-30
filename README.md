@@ -31,6 +31,17 @@ Then visit `http://localhost:4173`.
 
 No build step, package install, accounts, or backend servers are required. **Everything is strictly offline.**
 
+## Browser Compatibility & Automatic Backups
+
+The app features an **Automatic Backups** system that silently saves your progress to a chosen folder on your hard drive after every test. This relies on the **File System Access API**.
+
+- **Chrome / Edge**: Supported natively.
+- **Brave**: This powerful API is disabled by default for privacy reasons. To enable it in Brave, type `brave://flags/#file-system-access-api` into your address bar, set it to **Enabled**, and restart your browser.
+- **Firefox**: The API is currently unsupported.
+- **Local Files (`file://`)**: Browsers block the API for raw local files. If you aren't using the live GitHub Pages link, you must run the app using a local server (e.g. `python3 -m http.server`) to use this feature.
+
+If you cannot enable the API, you can always use the **Manual Transfer** section to manually download a `.json` backup of your progress to move between devices or prevent data loss.
+
 ## Data & Privacy
 
 This app relies entirely on frontend technologies (HTML, CSS, JS) and uses **IndexedDB (Dexie.js)** to store all user history, question banks, and analytics locally on your device.
