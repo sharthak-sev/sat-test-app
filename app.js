@@ -409,8 +409,8 @@
           <p class="muted" style="margin-bottom:16px;">Link your app's folder to enable seamless 1-click updates from GitHub.</p>
           ${state.appHandle 
             ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;"><div class="success-dot"></div><span>App folder linked</span><button class="ghost-btn" data-action="unlink-app">Unlink</button></div>`
-            : `<button class="secondary-btn" data-action="link-app">Link App Folder</button>
-               ${state.appLinkError ? `<p style="color:var(--red); font-size:13px; margin-top:8px;">${state.appLinkError}</p>` : ''}`}
+            : `<button class="secondary-btn" data-action="link-app">Link App Folder</button>`}
+          ${state.appMessage ? `<p style="color:var(--${state.appMessage.type === 'error' ? 'red' : 'blue'}); font-size:13px; margin-top:8px;">${state.appMessage.text}</p>` : ''}
           ${state.updateAvailable 
             ? `<div style="margin-top:16px;padding:16px;background:rgba(59,130,246,0.1);border-radius:8px;border:1px solid rgba(59,130,246,0.2);">
                  <p style="color:var(--blue);font-weight:600;margin-bottom:8px;">✨ Update Available</p>
@@ -430,8 +430,8 @@
                <button class="ghost-btn" data-action="force-backup">Sync Now</button>
                <button class="secondary-btn" data-action="restore-backup" style="margin-left:8px;">Restore</button>`
             : `<button class="secondary-btn" data-action="link-backup">Link Backup Folder</button>
-               <button class="ghost-btn" data-action="restore-backup" style="margin-left:8px;">Restore File</button>
-               ${state.backupLinkError ? `<p style="color:var(--red); font-size:13px; margin-top:8px;">${state.backupLinkError}</p>` : ''}`}
+               <button class="ghost-btn" data-action="restore-backup" style="margin-left:8px;">Restore File</button>`}
+               ${state.backupMessage ? `<p style="color:var(--${state.backupMessage.type === 'error' ? 'red' : 'blue'}); font-size:13px; margin-top:8px;">${state.backupMessage.text}</p>` : ''}
           
           <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
             <p class="eyebrow">Manual Backup</p>
@@ -1253,26 +1253,25 @@
   }
 
   async function linkBackupFolder() {
-    state.backupLinkError = null;
+    state.backupMessage = null;
     if (!window.showDirectoryPicker) {
-      state.backupLinkError = "Your browser does not support the File System API. Please use Chrome or Edge.";
+      state.backupMessage = { text: "Your browser does not support the File System API. Please use Chrome or Edge.", type: "error" };
       return;
     }
     if (location.protocol === "file:") {
-      state.backupLinkError = "File System API does not work on 'file://'. You must run the app using a local server.";
+      state.backupMessage = { text: "File System API does not work on 'file://'. You must run the app using a local server.", type: "error" };
       return;
     }
     try {
       const handle = await window.showDirectoryPicker({ mode: "readwrite" });
       state.backupHandle = handle;
       await DB.put("appConfig", { key: "backupHandle", handle });
-      state.backupLinkError = null;
-      showNotice("Backup folder linked successfully.", "success");
+      state.backupMessage = { text: "Backup folder linked successfully.", type: "success" };
       await syncBackup(true);
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.error(err);
-        state.backupLinkError = "Failed to link folder: " + err.message;
+        state.backupMessage = { text: "Failed to link folder: " + err.message, type: "error" };
       }
     }
   }
@@ -1280,7 +1279,7 @@
   async function unlinkBackupFolder() {
     state.backupHandle = null;
     await DB.remove("appConfig", "backupHandle");
-    showNotice("Backup folder unlinked.", "info");
+    state.backupMessage = { text: "Backup folder unlinked.", type: "success" };
   }
 
   async function syncBackup(requireGesture = false) {
@@ -1304,14 +1303,15 @@
       
       await writable.write(JSON.stringify(payload));
       await writable.close();
-      if (requireGesture) showNotice("Backup saved successfully.", "success");
+      if (requireGesture) state.backupMessage = { text: "Backup saved successfully.", type: "success" };
     } catch (err) {
       console.error("Backup failed:", err);
-      if (requireGesture) showNotice("Failed to save backup.", "error");
+      if (requireGesture) state.backupMessage = { text: "Failed to save backup.", type: "error" };
     }
   }
 
   async function downloadManualBackup() {
+    state.backupMessage = null;
     try {
       const payload = {
         exportedAt: new Date().toISOString(),
@@ -1320,7 +1320,32 @@
         sessions: state.sessions,
         responses: state.responses
       };
-      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      
+      const text = JSON.stringify(payload);
+      
+      if (window.showSaveFilePicker && location.protocol !== "file:") {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: `sat-app-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
+            types: [{ description: 'Backup JSON', accept: { 'application/json': ['.json'] } }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(text);
+          await writable.close();
+          state.backupMessage = { text: "Backup downloaded.", type: "success" };
+          renderHome();
+          return;
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            console.error(err);
+            state.backupMessage = { text: "Failed to download backup.", type: "error" };
+            renderHome();
+          }
+          return;
+        }
+      }
+
+      const blob = new Blob([text], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -1329,10 +1354,10 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showNotice("Backup downloaded.", "success");
     } catch (err) {
       console.error(err);
-      showNotice("Failed to create backup.", "error");
+      state.backupMessage = { text: "Failed to create backup.", type: "error" };
+      renderHome();
     }
   }
 
@@ -1359,36 +1384,36 @@
         if (payload.responses && payload.responses.length) await DB.putMany("responses", payload.responses);
 
         await refreshLocalData();
-        showNotice("Backup restored successfully.", "success");
+        state.backupMessage = { text: "Backup restored successfully.", type: "success" };
         renderHome();
       } catch (err) {
         console.error(err);
-        showNotice("Failed to restore backup.", "error");
+        state.backupMessage = { text: "Failed to restore backup.", type: "error" };
+        renderHome();
       }
     };
     input.click();
   }
 
   async function linkAppFolder() {
-    state.appLinkError = null;
+    state.appMessage = null;
     if (!window.showDirectoryPicker) {
-      state.appLinkError = "Your browser does not support the File System API. Please use Chrome or Edge.";
+      state.appMessage = { text: "Your browser does not support the File System API. Please use Chrome or Edge.", type: "error" };
       return;
     }
     if (location.protocol === "file:") {
-      state.appLinkError = "File System API does not work on 'file://'. You must run the app using a local server.";
+      state.appMessage = { text: "File System API does not work on 'file://'. You must run the app using a local server.", type: "error" };
       return;
     }
     try {
       const handle = await window.showDirectoryPicker({ mode: "readwrite" });
       state.appHandle = handle;
       await DB.put("appConfig", { key: "appHandle", handle });
-      state.appLinkError = null;
-      showNotice("App folder linked.", "success");
+      state.appMessage = { text: "App folder linked.", type: "success" };
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.error(err);
-        state.appLinkError = "Failed to link folder: " + err.message;
+        state.appMessage = { text: "Failed to link folder: " + err.message, type: "error" };
       }
     }
   }
@@ -1396,7 +1421,7 @@
   async function unlinkAppFolder() {
     state.appHandle = null;
     await DB.remove("appConfig", "appHandle");
-    showNotice("App folder unlinked.", "info");
+    state.appMessage = { text: "App folder unlinked.", type: "success" };
   }
 
   async function checkForUpdates(manual = false) {
