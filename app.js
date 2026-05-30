@@ -1255,23 +1255,23 @@
   async function linkBackupFolder() {
     state.backupMessage = null;
     if (!window.showDirectoryPicker) {
-      state.backupMessage = { text: "Your browser does not support the File System API. Please use Chrome or Edge.", type: "error" };
+      showBackupMsg("Your browser does not support the File System API. Please use Chrome or Edge.", "error");
       return;
     }
     if (location.protocol === "file:") {
-      state.backupMessage = { text: "File System API does not work on 'file://'. You must run the app using a local server.", type: "error" };
+      showBackupMsg("File System API does not work on 'file://'. You must run the app using a local server.", "error");
       return;
     }
     try {
       const handle = await window.showDirectoryPicker({ mode: "readwrite" });
       state.backupHandle = handle;
       await DB.put("appConfig", { key: "backupHandle", handle });
-      state.backupMessage = { text: "Backup folder linked successfully.", type: "success" };
+      showBackupMsg("Backup folder linked successfully.", "success");
       await syncBackup(true);
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.error(err);
-        state.backupMessage = { text: "Failed to link folder: " + err.message, type: "error" };
+        showBackupMsg("Failed to link folder: " + err.message, "error");
       }
     }
   }
@@ -1279,7 +1279,7 @@
   async function unlinkBackupFolder() {
     state.backupHandle = null;
     await DB.remove("appConfig", "backupHandle");
-    state.backupMessage = { text: "Backup folder unlinked.", type: "success" };
+    showBackupMsg("Backup folder unlinked.", "success");
   }
 
   async function syncBackup(requireGesture = false) {
@@ -1303,10 +1303,10 @@
       
       await writable.write(JSON.stringify(payload));
       await writable.close();
-      if (requireGesture) state.backupMessage = { text: "Backup saved successfully.", type: "success" };
+      if (requireGesture) showBackupMsg("Backup saved successfully.", "success");
     } catch (err) {
       console.error("Backup failed:", err);
-      if (requireGesture) state.backupMessage = { text: "Failed to save backup.", type: "error" };
+      if (requireGesture) showBackupMsg("Failed to save backup.", "error");
     }
   }
 
@@ -1332,13 +1332,13 @@
           const writable = await handle.createWritable();
           await writable.write(text);
           await writable.close();
-          state.backupMessage = { text: "Backup downloaded.", type: "success" };
+          showBackupMsg("Backup downloaded.", "success");
           renderHome();
           return;
         } catch (err) {
           if (err.name !== 'AbortError') {
             console.error(err);
-            state.backupMessage = { text: "Failed to download backup.", type: "error" };
+            showBackupMsg("Failed to download backup.", "error");
             renderHome();
           }
           return;
@@ -1356,7 +1356,7 @@
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err);
-      state.backupMessage = { text: "Failed to create backup.", type: "error" };
+      showBackupMsg("Failed to create backup.", "error");
       renderHome();
     }
   }
@@ -1384,11 +1384,11 @@
         if (payload.responses && payload.responses.length) await DB.putMany("responses", payload.responses);
 
         await refreshLocalData();
-        state.backupMessage = { text: "Backup restored successfully.", type: "success" };
+        showBackupMsg("Backup restored successfully.", "success");
         renderHome();
       } catch (err) {
         console.error(err);
-        state.backupMessage = { text: "Failed to restore backup.", type: "error" };
+        showBackupMsg("Failed to restore backup.", "error");
         renderHome();
       }
     };
@@ -1398,22 +1398,22 @@
   async function linkAppFolder() {
     state.appMessage = null;
     if (!window.showDirectoryPicker) {
-      state.appMessage = { text: "Your browser does not support the File System API. Please use Chrome or Edge.", type: "error" };
+      showAppMsg("Your browser does not support the File System API. Please use Chrome or Edge.", "error");
       return;
     }
     if (location.protocol === "file:") {
-      state.appMessage = { text: "File System API does not work on 'file://'. You must run the app using a local server.", type: "error" };
+      showAppMsg("File System API does not work on 'file://'. You must run the app using a local server.", "error");
       return;
     }
     try {
       const handle = await window.showDirectoryPicker({ mode: "readwrite" });
       state.appHandle = handle;
       await DB.put("appConfig", { key: "appHandle", handle });
-      state.appMessage = { text: "App folder linked.", type: "success" };
+      showAppMsg("App folder linked.", "success");
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.error(err);
-        state.appMessage = { text: "Failed to link folder: " + err.message, type: "error" };
+        showAppMsg("Failed to link folder: " + err.message, "error");
       }
     }
   }
@@ -1421,7 +1421,7 @@
   async function unlinkAppFolder() {
     state.appHandle = null;
     await DB.remove("appConfig", "appHandle");
-    state.appMessage = { text: "App folder unlinked.", type: "success" };
+    showAppMsg("App folder unlinked.", "success");
   }
 
   async function checkForUpdates(manual = false) {
@@ -2956,6 +2956,18 @@
      =========================================================== */
 
   function showNotice(text, type) { state.notice = { text, type }; }
+
+  function showAppMsg(text, type = "success") {
+    state.appMessage = { text, type };
+    if (state.appMsgTimer) clearTimeout(state.appMsgTimer);
+    state.appMsgTimer = setTimeout(() => { state.appMessage = null; if (state.view === "dashboard") renderHome(); }, 4000);
+  }
+
+  function showBackupMsg(text, type = "success") {
+    state.backupMessage = { text, type };
+    if (state.backupMsgTimer) clearTimeout(state.backupMsgTimer);
+    state.backupMsgTimer = setTimeout(() => { state.backupMessage = null; if (state.view === "dashboard") renderHome(); }, 4000);
+  }
   function findDomainLabel(subject, code) { return (DOMAIN_FALLBACKS[subject] || []).find(d => d.code === code)?.label || ""; }
   function hasAnswer(value) { return String(value || "").trim().length > 0; }
   function isAnsweredResponse(r) { return r?.isAnswered !== false && hasAnswer(r?.answer); }
