@@ -2960,13 +2960,13 @@
   function showAppMsg(text, type = "success") {
     state.appMessage = { text, type };
     if (state.appMsgTimer) clearTimeout(state.appMsgTimer);
-    state.appMsgTimer = setTimeout(() => { state.appMessage = null; if (state.view === "dashboard") renderHome(); }, 4000);
+    state.appMsgTimer = setTimeout(() => { state.appMessage = null; if (state.view === "dashboard") renderHome(); }, 10000);
   }
 
   function showBackupMsg(text, type = "success") {
     state.backupMessage = { text, type };
     if (state.backupMsgTimer) clearTimeout(state.backupMsgTimer);
-    state.backupMsgTimer = setTimeout(() => { state.backupMessage = null; if (state.view === "dashboard") renderHome(); }, 4000);
+    state.backupMsgTimer = setTimeout(() => { state.backupMessage = null; if (state.view === "dashboard") renderHome(); }, 10000);
   }
   function findDomainLabel(subject, code) { return (DOMAIN_FALLBACKS[subject] || []).find(d => d.code === code)?.label || ""; }
   function hasAnswer(value) { return String(value || "").trim().length > 0; }
