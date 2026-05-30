@@ -2,7 +2,7 @@
   "use strict";
 
   const DB_NAME = "sat-interactive-practice";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   let dbPromise = null;
 
   function open() {
@@ -41,6 +41,10 @@
           responses.createIndex("subject", "subject", { unique: false });
           responses.createIndex("domainCode", "domainCode", { unique: false });
         }
+
+        if (!db.objectStoreNames.contains("appConfig")) {
+          db.createObjectStore("appConfig", { keyPath: "key" });
+        }
       };
 
       request.onsuccess = () => resolve(request.result);
@@ -75,6 +79,10 @@
 
   async function getAll(storeName) {
     return withStore(storeName, "readonly", store => requestToPromise(store.getAll()));
+  }
+
+  async function get(storeName, key) {
+    return withStore(storeName, "readonly", store => requestToPromise(store.get(key)));
   }
 
   async function put(storeName, value) {
@@ -125,6 +133,7 @@
 
   window.SatPracticeDB = {
     getAll,
+    get,
     put,
     putMany,
     remove,

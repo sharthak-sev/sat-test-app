@@ -101,11 +101,16 @@
     { action: "Open/Close Calculator", shortcut: "Alt + C" }
   ];
 
+  const APP_VERSION_SHA = "INITIAL";
+
   const state = {
     banks: [],
     questions: [],
     sessions: [],
     responses: [],
+    backupHandle: null,
+    appHandle: null,
+    updateAvailable: null,
     view: "dashboard",
     historyTab: "full",
     reviewSessionId: null,
@@ -149,6 +154,7 @@
       renderActiveTest();
     } else {
       renderHome();
+      checkForUpdates();
     }
   }
 
@@ -255,6 +261,11 @@
       .filter(s => s.id !== "__active_test__")
       .sort((a, b) => String(b.completedAt).localeCompare(String(a.completedAt)));
     state.responses = responses.sort((a, b) => String(b.answeredAt).localeCompare(String(a.answeredAt)));
+
+    const backupConf = await DB.get("appConfig", "backupHandle");
+    const appConf = await DB.get("appConfig", "appHandle");
+    state.backupHandle = backupConf ? backupConf.handle : null;
+    state.appHandle = appConf ? appConf.handle : null;
   }
 
   /* ===========================================================
@@ -389,7 +400,48 @@
         </div>
       </section>
 
-      <section class="panel two-column">
+      <section class="panel two-column" style="margin-top: 32px;">
+        <div style="border-right: 1px solid var(--border); padding-right: 24px;">
+          <div class="panel-heading">
+            <p class="eyebrow">App System</p>
+            <h2>Updates & App Link</h2>
+          </div>
+          <p class="muted" style="margin-bottom:16px;">Link your app's folder to enable seamless 1-click updates from GitHub.</p>
+          ${state.appHandle 
+            ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;"><div class="success-dot"></div><span>App folder linked</span><button class="ghost-btn" data-action="unlink-app">Unlink</button></div>`
+            : `<button class="secondary-btn" data-action="link-app">Link App Folder</button>
+               ${state.appLinkError ? `<p style="color:var(--red); font-size:13px; margin-top:8px;">${state.appLinkError}</p>` : ''}`}
+          ${state.updateAvailable 
+            ? `<div style="margin-top:16px;padding:16px;background:rgba(59,130,246,0.1);border-radius:8px;border:1px solid rgba(59,130,246,0.2);">
+                 <p style="color:var(--blue);font-weight:600;margin-bottom:8px;">✨ Update Available</p>
+                 <p style="font-size:13px;margin-bottom:12px;">A newer version of the app is available on GitHub.</p>
+                 ${state.appHandle ? `<button class="primary-btn" data-action="apply-update">Update Now</button>` : `<p style="font-size:13px;color:var(--red);">Link app folder first to update.</p>`}
+               </div>`
+            : `<button class="ghost-btn" data-action="check-updates" style="margin-top:8px;">Check for Updates</button>`}
+        </div>
+        <div style="padding-left: 24px;">
+          <div class="panel-heading">
+            <p class="eyebrow">Data Security</p>
+            <h2>Automatic Backups</h2>
+          </div>
+          <p class="muted" style="margin-bottom:16px;">Link a backup folder to automatically save your progress after every test.</p>
+          ${state.backupHandle 
+            ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;"><div class="success-dot"></div><span>Backup folder linked</span><button class="ghost-btn" data-action="unlink-backup">Unlink</button></div>
+               <button class="ghost-btn" data-action="force-backup">Sync Now</button>
+               <button class="secondary-btn" data-action="restore-backup" style="margin-left:8px;">Restore</button>`
+            : `<button class="secondary-btn" data-action="link-backup">Link Backup Folder</button>
+               <button class="ghost-btn" data-action="restore-backup" style="margin-left:8px;">Restore File</button>
+               ${state.backupLinkError ? `<p style="color:var(--red); font-size:13px; margin-top:8px;">${state.backupLinkError}</p>` : ''}`}
+          
+          <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
+            <p class="eyebrow">Manual Backup</p>
+            <p class="muted" style="margin-bottom:12px;font-size:13px;">If you can't link a folder, you can download a backup manually.</p>
+            <button class="ghost-btn" data-action="download-backup">Download Backup</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel two-column" style="margin-top: 32px;">
         <div>
           <div class="panel-heading">
             <p class="eyebrow">Timing</p>
@@ -541,6 +593,8 @@
         </div>
       </section>
 
+      ${renderScoreboard(result.session)}
+
       <section class="metric-grid">
         ${renderMetric("Answered", result.session.totalAnswered, "questions")}
         ${renderMetric("Correct", result.session.totalCorrect, "right answers")}
@@ -573,6 +627,40 @@
           </div>
         </section>
       ` : ""}
+    `;
+  }
+
+  function renderScoreboard(session) {
+    if (session.mode !== "full" || !session.moduleSummaries) return "";
+
+    let rwThetaSum = 0, mathThetaSum = 0, rwMods = 0, mathMods = 0;
+    for (const s of session.moduleSummaries) {
+      if (s.subject === "rw") { rwThetaSum += s.theta; rwMods++; }
+      if (s.subject === "math") { mathThetaSum += s.theta; mathMods++; }
+    }
+    const rwTheta = rwMods ? (rwThetaSum / rwMods) : 0;
+    const mathTheta = mathMods ? (mathThetaSum / mathMods) : 0;
+    
+    const rwScore = Math.round(Math.min(800, Math.max(200, 500 + (rwTheta * 100))) / 10) * 10;
+    const mathScore = Math.round(Math.min(800, Math.max(200, 500 + (mathTheta * 100))) / 10) * 10;
+    const totalScore = rwScore + mathScore;
+
+    return `
+      <section class="panel scoreboard-panel" style="text-align: center; margin-bottom: 24px; padding: 32px;">
+        <p class="eyebrow">Simulated Score</p>
+        <h1 style="font-size: 4rem; color: var(--blue); margin: 8px 0;">${totalScore}</h1>
+        <div style="display: flex; justify-content: center; gap: 32px; margin-top: 16px;">
+          <div>
+            <p class="muted" style="margin-bottom: 4px;">Reading & Writing</p>
+            <h2 style="font-size: 2rem;">${rwScore}</h2>
+          </div>
+          <div>
+            <p class="muted" style="margin-bottom: 4px;">Math</p>
+            <h2 style="font-size: 2rem;">${mathScore}</h2>
+          </div>
+        </div>
+        <p class="muted" style="margin-top: 16px; font-size: 13px;">Scores are simulated using an IRT approximation and may not perfectly reflect official College Board scoring.</p>
+      </section>
     `;
   }
 
@@ -1139,6 +1227,219 @@
       await refreshLocalData();
       showNotice("Test deleted.", "info");
       renderHome();
+      syncBackup(false);
+    }
+    
+    if (action === "link-app") { await linkAppFolder(); renderHome(); }
+    if (action === "unlink-app") { await unlinkAppFolder(); renderHome(); }
+    if (action === "check-updates") { await checkForUpdates(true); }
+    if (action === "apply-update") { await applyUpdate(); }
+    
+    if (action === "link-backup") { await linkBackupFolder(); renderHome(); }
+    if (action === "unlink-backup") { await unlinkBackupFolder(); renderHome(); }
+    if (action === "force-backup") { await syncBackup(true); }
+    if (action === "download-backup") { await downloadManualBackup(); }
+    if (action === "restore-backup") { await restoreBackup(); }
+  }
+
+  /* ===========================================================
+     SYSTEM FEATURES: BACKUP & UPDATER
+     =========================================================== */
+
+  async function verifyPermission(handle, mode = "readwrite") {
+    if ((await handle.queryPermission({ mode })) === "granted") return true;
+    if ((await handle.requestPermission({ mode })) === "granted") return true;
+    return false;
+  }
+
+  async function linkBackupFolder() {
+    state.backupLinkError = null;
+    if (!window.showDirectoryPicker) {
+      state.backupLinkError = "Your browser does not support the File System API. Please use Chrome or Edge.";
+      return;
+    }
+    if (location.protocol === "file:") {
+      state.backupLinkError = "File System API does not work on 'file://'. You must run the app using a local server.";
+      return;
+    }
+    try {
+      const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+      state.backupHandle = handle;
+      await DB.put("appConfig", { key: "backupHandle", handle });
+      state.backupLinkError = null;
+      showNotice("Backup folder linked successfully.", "success");
+      await syncBackup(true);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error(err);
+        state.backupLinkError = "Failed to link folder: " + err.message;
+      }
+    }
+  }
+
+  async function unlinkBackupFolder() {
+    state.backupHandle = null;
+    await DB.remove("appConfig", "backupHandle");
+    showNotice("Backup folder unlinked.", "info");
+  }
+
+  async function syncBackup(requireGesture = false) {
+    if (!state.backupHandle) return;
+    try {
+      if ((await state.backupHandle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+        if (!requireGesture) return;
+        if ((await state.backupHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') return;
+      }
+      
+      const fileHandle = await state.backupHandle.getFileHandle("sat-app-backup.json", { create: true });
+      const writable = await fileHandle.createWritable();
+      
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        questionBanks: state.banks,
+        questions: state.questions,
+        sessions: state.sessions,
+        responses: state.responses
+      };
+      
+      await writable.write(JSON.stringify(payload));
+      await writable.close();
+      if (requireGesture) showNotice("Backup saved successfully.", "success");
+    } catch (err) {
+      console.error("Backup failed:", err);
+      if (requireGesture) showNotice("Failed to save backup.", "error");
+    }
+  }
+
+  async function downloadManualBackup() {
+    try {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        questionBanks: state.banks,
+        questions: state.questions,
+        sessions: state.sessions,
+        responses: state.responses
+      };
+      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sat-app-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showNotice("Backup downloaded.", "success");
+    } catch (err) {
+      console.error(err);
+      showNotice("Failed to create backup.", "error");
+    }
+  }
+
+  async function restoreBackup() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const payload = JSON.parse(text);
+
+        const banksData = payload.questionBanks || payload.banks;
+
+        if (!banksData || !payload.questions) throw new Error("Invalid backup format");
+        if (!window.confirm("Restore backup? This will overwrite your current progress.")) return;
+
+        await DB.clearAll();
+        if (banksData.length) await DB.putMany("questionBanks", banksData);
+        if (payload.questions.length) await DB.putMany("questions", payload.questions);
+        if (payload.sessions && payload.sessions.length) await DB.putMany("sessions", payload.sessions);
+        if (payload.responses && payload.responses.length) await DB.putMany("responses", payload.responses);
+
+        await refreshLocalData();
+        showNotice("Backup restored successfully.", "success");
+        renderHome();
+      } catch (err) {
+        console.error(err);
+        showNotice("Failed to restore backup.", "error");
+      }
+    };
+    input.click();
+  }
+
+  async function linkAppFolder() {
+    state.appLinkError = null;
+    if (!window.showDirectoryPicker) {
+      state.appLinkError = "Your browser does not support the File System API. Please use Chrome or Edge.";
+      return;
+    }
+    if (location.protocol === "file:") {
+      state.appLinkError = "File System API does not work on 'file://'. You must run the app using a local server.";
+      return;
+    }
+    try {
+      const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+      state.appHandle = handle;
+      await DB.put("appConfig", { key: "appHandle", handle });
+      state.appLinkError = null;
+      showNotice("App folder linked.", "success");
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error(err);
+        state.appLinkError = "Failed to link folder: " + err.message;
+      }
+    }
+  }
+
+  async function unlinkAppFolder() {
+    state.appHandle = null;
+    await DB.remove("appConfig", "appHandle");
+    showNotice("App folder unlinked.", "info");
+  }
+
+  async function checkForUpdates(manual = false) {
+    try {
+      const res = await fetch("https://api.github.com/repos/sharthak-sev/sat-test-app/commits/main");
+      if (!res.ok) throw new Error("GitHub API error");
+      const data = await res.json();
+      if (data.sha && data.sha !== APP_VERSION_SHA) {
+        state.updateAvailable = data.sha;
+        renderHome();
+        if (manual) showNotice("Update available!", "success");
+      } else {
+        if (manual) showNotice("You are on the latest version.", "info");
+      }
+    } catch (err) {
+      console.error("Update check failed:", err);
+      if (manual) showNotice("Failed to check for updates.", "error");
+    }
+  }
+
+  async function applyUpdate() {
+    if (!state.appHandle || !state.updateAvailable) return;
+    try {
+      if (!(await verifyPermission(state.appHandle))) return;
+
+      const filesToUpdate = ["app.js", "styles.css", "index.html"];
+      for (const fileName of filesToUpdate) {
+        const res = await fetch(`https://raw.githubusercontent.com/sharthak-sev/sat-test-app/main/${fileName}?t=${Date.now()}`);
+        if (!res.ok) throw new Error(`Failed to fetch ${fileName}`);
+        const content = await res.text();
+        const newText = fileName === "app.js" ? content.replace('const APP_VERSION_SHA = "INITIAL";', `const APP_VERSION_SHA = "${state.updateAvailable}";`) : content;
+
+        const fileHandle = await state.appHandle.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(newText);
+        await writable.close();
+      }
+
+      showNotice("Update applied! Reloading...", "success");
+      setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+      console.error("Apply update failed:", err);
+      showNotice("Failed to apply update. See console.", "error");
     }
   }
 
@@ -1164,6 +1465,7 @@
       showNotice(err.message || String(err), "error");
       renderHome();
     }
+    syncBackup(false);
   }
 
   function normalizeImportPayload(payload, filename) {
@@ -1950,6 +2252,7 @@
     state.eliminatedChoices = {};
     await refreshLocalData();
     renderHome();
+    syncBackup(false);
   }
 
   function buildSession(test, responses, completedAt) {
