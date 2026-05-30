@@ -105,16 +105,13 @@
      STATE & INITIALIZATION
      =========================================================== */
 
-  const APP_VERSION_SHA = "d1d077c8d8a8b4c5e20fbdd3d97d5cced0232dea";
-
   const state = {
     banks: [],
     questions: [],
     sessions: [],
     responses: [],
     backupHandle: null,
-    appHandle: null,
-    updateAvailable: null,
+    backupMessage: null,
     view: "dashboard",
     historyTab: "full",
     reviewSessionId: null,
@@ -158,7 +155,6 @@
       renderActiveTest();
     } else {
       renderHome();
-      checkForUpdates();
     }
   }
 
@@ -267,9 +263,7 @@
     state.responses = responses.sort((a, b) => String(b.answeredAt).localeCompare(String(a.answeredAt)));
 
     const backupConf = await DB.get("appConfig", "backupHandle");
-    const appConf = await DB.get("appConfig", "appHandle");
     state.backupHandle = backupConf ? backupConf.handle : null;
-    state.appHandle = appConf ? appConf.handle : null;
   }
 
   /* ===========================================================
@@ -404,44 +398,24 @@
         </div>
       </section>
 
-      <section class="panel two-column" style="margin-top: 32px;">
-        <div style="border-right: 1px solid var(--border); padding-right: 24px;">
-          <div class="panel-heading">
-            <p class="eyebrow">App System</p>
-            <h2>Updates & App Link</h2>
-          </div>
-          <p class="muted" style="margin-bottom:16px;">Link your app's folder to enable seamless 1-click updates from GitHub.</p>
-          ${state.appHandle 
-            ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;"><div class="success-dot"></div><span>App folder linked</span><button class="ghost-btn" data-action="unlink-app">Unlink</button></div>`
-            : `<button class="secondary-btn" data-action="link-app">Link App Folder</button>`}
-          ${state.appMessage ? `<p style="color:var(--${state.appMessage.type === 'error' ? 'red' : 'blue'}); font-size:13px; margin-top:8px;">${state.appMessage.text}</p>` : ''}
-          ${state.updateAvailable 
-            ? `<div style="margin-top:16px;padding:16px;background:rgba(59,130,246,0.1);border-radius:8px;border:1px solid rgba(59,130,246,0.2);">
-                 <p style="color:var(--blue);font-weight:600;margin-bottom:8px;">✨ Update Available</p>
-                 <p style="font-size:13px;margin-bottom:12px;">A newer version of the app is available on GitHub.</p>
-                 ${state.appHandle ? `<button class="primary-btn" data-action="apply-update">Update Now</button>` : `<p style="font-size:13px;color:var(--red);">Link app folder first to update.</p>`}
-               </div>`
-            : `<button class="ghost-btn" data-action="check-updates" style="margin-top:8px;">Check for Updates</button>`}
+      <section class="panel" style="margin-top: 32px;">
+        <div class="panel-heading">
+          <p class="eyebrow">Data Security</p>
+          <h2>Automatic Backups</h2>
         </div>
-        <div style="padding-left: 24px;">
-          <div class="panel-heading">
-            <p class="eyebrow">Data Security</p>
-            <h2>Automatic Backups</h2>
-          </div>
-          <p class="muted" style="margin-bottom:16px;">Link a backup folder to automatically save your progress after every test.</p>
-          ${state.backupHandle 
-            ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;"><div class="success-dot"></div><span>Backup folder linked</span><button class="ghost-btn" data-action="unlink-backup">Unlink</button></div>
-               <button class="ghost-btn" data-action="force-backup">Sync Now</button>
-               <button class="secondary-btn" data-action="restore-backup" style="margin-left:8px;">Restore</button>`
-            : `<button class="secondary-btn" data-action="link-backup">Link Backup Folder</button>
-               <button class="ghost-btn" data-action="restore-backup" style="margin-left:8px;">Restore File</button>`}
-               ${state.backupMessage ? `<p style="color:var(--${state.backupMessage.type === 'error' ? 'red' : 'blue'}); font-size:13px; margin-top:8px;">${state.backupMessage.text}</p>` : ''}
-          
-          <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
-            <p class="eyebrow">Manual Backup</p>
-            <p class="muted" style="margin-bottom:12px;font-size:13px;">If you can't link a folder, you can download a backup manually.</p>
-            <button class="ghost-btn" data-action="download-backup">Download Backup</button>
-          </div>
+        <p class="muted" style="margin-bottom:16px;">Link a backup folder to automatically save your progress after every test.</p>
+        ${state.backupHandle 
+          ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;"><div class="success-dot"></div><span>Backup folder linked</span><button class="ghost-btn" data-action="unlink-backup">Unlink</button></div>
+             <button class="ghost-btn" data-action="force-backup">Sync Now</button>
+             <button class="secondary-btn" data-action="restore-backup" style="margin-left:8px;">Restore</button>`
+          : `<button class="secondary-btn" data-action="link-backup">Link Backup Folder</button>
+             <button class="ghost-btn" data-action="restore-backup" style="margin-left:8px;">Restore File</button>`}
+             ${state.backupMessage ? `<p style="color:var(--${state.backupMessage.type === 'error' ? 'red' : 'blue'}); font-size:13px; margin-top:8px;">${state.backupMessage.text}</p>` : ''}
+        
+        <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
+          <p class="eyebrow">Manual Backup</p>
+          <p class="muted" style="margin-bottom:12px;font-size:13px;">If you can't link a folder, you can download a backup manually.</p>
+          <button class="ghost-btn" data-action="download-backup">Download Backup</button>
         </div>
       </section>
 
@@ -1234,11 +1208,6 @@
       syncBackup(false);
     }
     
-    if (action === "link-app") { await linkAppFolder(); renderHome(); }
-    if (action === "unlink-app") { await unlinkAppFolder(); renderHome(); }
-    if (action === "check-updates") { await checkForUpdates(true); }
-    if (action === "apply-update") { await applyUpdate(); }
-    
     if (action === "link-backup") { await linkBackupFolder(); renderHome(); }
     if (action === "unlink-backup") { await unlinkBackupFolder(); renderHome(); }
     if (action === "force-backup") { await syncBackup(true); }
@@ -1247,14 +1216,8 @@
   }
 
   /* ===========================================================
-     SYSTEM FEATURES: BACKUP & UPDATER
+     SYSTEM FEATURES: BACKUP
      =========================================================== */
-
-  async function verifyPermission(handle, mode = "readwrite") {
-    if ((await handle.queryPermission({ mode })) === "granted") return true;
-    if ((await handle.requestPermission({ mode })) === "granted") return true;
-    return false;
-  }
 
   async function linkBackupFolder() {
     state.backupMessage = null;
@@ -1397,79 +1360,6 @@
       }
     };
     input.click();
-  }
-
-  async function linkAppFolder() {
-    state.appMessage = null;
-    if (!window.showDirectoryPicker) {
-      showAppMsg("Your browser does not support the File System API. Please use Chrome or Edge.", "error");
-      return;
-    }
-    if (location.protocol === "file:") {
-      showAppMsg("File System API does not work on 'file://'. You must run the app using a local server.", "error");
-      return;
-    }
-    try {
-      const handle = await window.showDirectoryPicker({ mode: "readwrite" });
-      state.appHandle = handle;
-      await DB.put("appConfig", { key: "appHandle", handle });
-      showAppMsg("App folder linked.", "success");
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error(err);
-        showAppMsg("Failed to link folder: " + err.message, "error");
-      }
-    }
-  }
-
-  async function unlinkAppFolder() {
-    state.appHandle = null;
-    await DB.remove("appConfig", "appHandle");
-    showAppMsg("App folder unlinked.", "success");
-  }
-
-  async function checkForUpdates(manual = false) {
-    try {
-      const res = await fetch("https://api.github.com/repos/sharthak-sev/sat-test-app/commits/main");
-      if (!res.ok) throw new Error("GitHub API error");
-      const data = await res.json();
-      if (data.sha && data.sha !== APP_VERSION_SHA) {
-        state.updateAvailable = data.sha;
-        renderHome();
-        if (manual) showNotice("Update available!", "success");
-      } else {
-        if (manual) showNotice("You are on the latest version.", "info");
-      }
-    } catch (err) {
-      console.error("Update check failed:", err);
-      if (manual) showNotice("Failed to check for updates.", "error");
-    }
-  }
-
-  async function applyUpdate() {
-    if (!state.appHandle || !state.updateAvailable) return;
-    try {
-      if (!(await verifyPermission(state.appHandle))) return;
-
-      const filesToUpdate = ["app.js", "styles.css", "index.html"];
-      for (const fileName of filesToUpdate) {
-        const res = await fetch(`https://raw.githubusercontent.com/sharthak-sev/sat-test-app/main/${fileName}?t=${Date.now()}`);
-        if (!res.ok) throw new Error(`Failed to fetch ${fileName}`);
-        const content = await res.text();
-        const newText = fileName === "app.js" ? content.replace(/const APP_VERSION_SHA = "[^"]+";/, `const APP_VERSION_SHA = "${state.updateAvailable}";`) : content;
-
-        const fileHandle = await state.appHandle.getFileHandle(fileName, { create: true });
-        const writable = await fileHandle.createWritable();
-        await writable.write(newText);
-        await writable.close();
-      }
-
-      showNotice("Update applied! Reloading...", "success");
-      setTimeout(() => location.reload(), 1000);
-    } catch (err) {
-      console.error("Apply update failed:", err);
-      showNotice("Failed to apply update. See console.", "error");
-    }
   }
 
   /* ===========================================================
@@ -2960,12 +2850,6 @@
      =========================================================== */
 
   function showNotice(text, type) { state.notice = { text, type }; }
-
-  function showAppMsg(text, type = "success") {
-    state.appMessage = { text, type };
-    if (state.appMsgTimer) clearTimeout(state.appMsgTimer);
-    state.appMsgTimer = setTimeout(() => { state.appMessage = null; if (state.view === "dashboard") renderHome(); }, 10000);
-  }
 
   function showBackupMsg(text, type = "success") {
     state.backupMessage = { text, type };
