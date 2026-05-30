@@ -101,7 +101,11 @@
     { action: "Open/Close Calculator", shortcut: "Alt + C" }
   ];
 
-  const APP_VERSION_SHA = "INITIAL";
+  /* ===========================================================
+     STATE & INITIALIZATION
+     =========================================================== */
+
+  const APP_VERSION_SHA = "d1d077c8d8a8b4c5e20fbdd3d97d5cced0232dea";
 
   const state = {
     banks: [],
@@ -1452,7 +1456,7 @@
         const res = await fetch(`https://raw.githubusercontent.com/sharthak-sev/sat-test-app/main/${fileName}?t=${Date.now()}`);
         if (!res.ok) throw new Error(`Failed to fetch ${fileName}`);
         const content = await res.text();
-        const newText = fileName === "app.js" ? content.replace('const APP_VERSION_SHA = "INITIAL";', `const APP_VERSION_SHA = "${state.updateAvailable}";`) : content;
+        const newText = fileName === "app.js" ? content.replace(/const APP_VERSION_SHA = "[^"]+";/, `const APP_VERSION_SHA = "${state.updateAvailable}";`) : content;
 
         const fileHandle = await state.appHandle.getFileHandle(fileName, { create: true });
         const writable = await fileHandle.createWritable();
