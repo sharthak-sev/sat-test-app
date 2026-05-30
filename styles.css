@@ -1693,3 +1693,39 @@ button, label, a { -webkit-tap-highlight-color: transparent; }
   width: 400px;
   max-width: 90vw;
 }
+
+[data-theme="dark"] {
+  --bb-navy: #0f172a; 
+  --bb-navy-light: #1e293b;
+  --bb-blue: #3b82f6;
+  --bb-blue-hover: #60a5fa;
+  --bb-blue-soft: #1e3a8a;
+  --bb-blue-glow: rgba(59,130,246,0.25);
+
+  --ink: #f8fafc;
+  --ink-secondary: #cbd5e1;
+  --ink-muted: #94a3b8;
+  --paper: #0f172a;
+  --panel: #1e293b;
+  --line: #334155;
+  --line-light: #1e293b;
+  
+  --green-bg: #064e3b;
+  --green-border: #047857;
+  --green: #34d399;
+  
+  --red-bg: #7f1d1d;
+  --red-border: #b91c1c;
+  --red: #f87171;
+
+  --amber-bg: #78350f;
+  --amber-border: #b45309;
+  --amber: #fbbf24;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.4);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
+  --shadow-xl: 0 20px 60px rgba(0,0,0,0.7);
+
+  color-scheme: dark;
+}

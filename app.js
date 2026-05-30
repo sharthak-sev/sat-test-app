@@ -151,6 +151,21 @@
     await refreshLocalData();
     await restoreActiveTest();
     ensureConfigDefaults();
+
+    const savedTheme = localStorage.getItem("sat-theme");
+    if (savedTheme === "dark") document.documentElement.setAttribute("data-theme", "dark");
+
+    window.toggleTheme = function() {
+      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+      if (isDark) {
+        document.documentElement.removeAttribute("data-theme");
+        localStorage.setItem("sat-theme", "light");
+      } else {
+        document.documentElement.setAttribute("data-theme", "dark");
+        localStorage.setItem("sat-theme", "dark");
+      }
+    };
+
     if (state.activeTest) {
       renderActiveTest();
     } else {
@@ -301,6 +316,7 @@
           </span>
         </button>
         <nav class="top-actions">
+          <button class="ghost-btn" type="button" onclick="toggleTheme()" title="Toggle Dark Mode">🌙</button>
           <button class="ghost-btn" type="button" data-action="open-support" style="color: #7c3aed; border: 1px solid #7c3aed;">☕ Buy me a coffee</button>
           <button class="ghost-btn" type="button" data-action="dashboard">Dashboard</button>
           <button class="ghost-btn" type="button" data-action="config">Create New Test</button>
